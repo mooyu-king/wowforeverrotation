@@ -50,6 +50,7 @@
    state:s=>['Active seal: '+(s.seal||'None'),'Stored Command: '+s.stacks+'/3','Stored time: '+s.buff+'s']
   }
  };
+ Object.assign(setups,window.foreverExtra||{});
  const cfg=setups[spec];if(!cfg)return;
  const notes={
   'arms-warrior':[
@@ -76,8 +77,9 @@
    'Swing under Command to build charges. Under Righteousness, a landed swing releases stored Command.',
    'Use with an active seal when available. Keep watching the swing and stored-charge timers.'
   ]
- }[spec];
+ }[spec]||cfg.notes;
  const classes={'arms-warrior':'Arms Warrior','combat-rogue':'Combat Rogue','frost-mage':'Frost Mage','retribution-paladin':'Retribution Paladin'};
+ Object.assign(classes,{'feral-druid':'Feral Druid','beast-mastery-hunter':'Beast Mastery Hunter','enhancement-shaman':'Enhancement Shaman'});
  const switcher=document.createElement('nav');
  switcher.className='trainer-specs';switcher.setAttribute('aria-label','Choose a specialization');
  for(const [slug,name] of Object.entries(classes)){
@@ -91,10 +93,10 @@
   'frost-mage':'Start with Frostbolt (1). Watch the target’s Winter’s Chill count grow. At five stacks, use Cone of Cold (3) to spend them.',
   'combat-rogue':'Use Sinister Strike (1) to earn a combo point, then Slice and Dice (2) to spend it on faster attacks. Build points again while the buff lasts.',
   'retribution-paladin':'Activate Seal of Command (1). Use Melee swing (3) to store charges. At three charges, switch seals (2), then land another swing (3) to release them.'
- }[spec];
+ }[spec]||cfg.beginner;
  const total=60;let timer=null,lastTick=0;
  let phase='ready',s,message='',assisted=true;
- const fresh=()=>({t:0,power:cfg.initial,stacks:0,stance:false,seal:'',poised:true,buff:0,proc:0,bleed:0,cd:[0,0,0,0],global:0,casts:0,matched:0,blocked:0,lesson:null,log:[]});
+ const fresh=()=>({t:0,power:cfg.initial,stacks:0,stance:false,seal:'',poised:true,buff:0,proc:0,bleed:0,cd:cfg.names.map(()=>0),global:0,casts:0,matched:0,blocked:0,lesson:null,log:[],...JSON.parse(JSON.stringify(cfg.initialState||{}))});
  s=fresh();board.classList.add(cfg.theme);
  const episode=['arms-warrior','combat-rogue'].includes(spec)?'Cb8r05IXiyI':'LqlOlbvaTsc';
  const chapter={'arms-warrior':[17,121],'combat-rogue':[218,326],'frost-mage':[114,242],'retribution-paladin':[242,368]}[spec];
@@ -102,16 +104,17 @@
  const warrior=spec==='arms-warrior';
  board.innerHTML='<div class="fighthead"><strong>Training dummy</strong><span id="time"></span></div><progress id="fight-clock" max="60" value="60" aria-label="Encounter time remaining"></progress><p><a target="_blank" rel="noopener noreferrer" href="https://www.youtube.com/watch?v='+episode+'">Blizzard class highlights ↗</a> · Pre-launch footage</p><div id="film-caption"></div><p>Decision drill with scaled resources and timing. Character animation for these actions has not been verified against the launch client.</p><div id="vitals"></div><div id="auras"></div><p id="first-moves"></p><div class="hotbar"></div><p id="combat-feedback" role="status"></p><div class="fight-controls"></div>';
  const el=selector=>board.querySelector(selector);
- el('#first-moves').textContent='Before starting, tap a skill to read about it. During the fight, use keys 1–4 or tap the same buttons to act.';
+ el('#first-moves').textContent='Before starting, tap a skill to read about it. During the fight, use keys 1–'+cfg.names.length+' or tap the same buttons to act.';
  const sourcePanel=el('a[href*="youtube.com"]').parentElement;
  const watch=sourcePanel.querySelector('a');
- watch.href+='&t='+chapter[0]+'s';
+ watch.href+='&t='+(chapter?.[0]||0)+'s';
  watch.textContent='Open chapter on YouTube ↗';
  const loadFilm=document.createElement('button');
  loadFilm.type='button';loadFilm.className='action';loadFilm.textContent='▷ Watch Blizzard class footage';
  const video=document.createElement('details');
  const summary=document.createElement('summary');summary.textContent='Class video reference';
  video.append(summary,loadFilm,sourcePanel);board.append(video);
+ if(cfg.source){loadFilm.remove();summary.textContent='Rotation reference';watch.href=cfg.source;watch.textContent='Read the source guide ↗';sourcePanel.lastChild.textContent=' · Source checked 10 Nov 2026';}
  video.addEventListener('toggle',()=>{
   if(!video.open){video.querySelector('iframe')?.remove();loadFilm.hidden=false;}
  });
@@ -128,7 +131,7 @@
  function showEffect(i){
   const caption=el('#film-caption');
   caption.textContent=cfg.names[i];
-  if(!warrior)return;
+  if(!warrior){if(cfg.notes){const p=document.createElement('p');p.className='action-explanation';p.textContent=cfg.notes[i];caption.append(p);}return;}
   const id=spells[i];
   caption.replaceChildren();
   const image=document.createElement('img');
@@ -149,7 +152,7 @@
  };
  const buttons=cfg.names.map((name,i)=>{
   const b=document.createElement('button');b.type='button';b.dataset.ability=i;
-  b.innerHTML='<kbd>'+(i+1)+'</kbd><i aria-hidden=true>'+glyphs[spec][i]+'</i><strong>'+name+'</strong><small></small>';if(warrior){const icon=document.createElement('img');icon.src='/warrior-skills/'+spells[i]+'.jpg';icon.alt='';icon.width=30;icon.height=30;icon.style.margin='auto';b.querySelector('i').replaceWith(icon);}el('.hotbar').append(b);return b;
+  b.innerHTML='<kbd>'+(i+1)+'</kbd><i aria-hidden=true>'+(glyphs[spec]||cfg.glyphs)[i]+'</i><strong>'+name+'</strong><small></small>';if(warrior){const icon=document.createElement('img');icon.src='/warrior-skills/'+spells[i]+'.jpg';icon.alt='';icon.width=30;icon.height=30;icon.style.margin='auto';b.querySelector('i').replaceWith(icon);}el('.hotbar').append(b);return b;
  });
  // Each checkpoint supplies a specific encounter state. Reading time does not consume it.
  const lessons={
@@ -174,7 +177,7 @@
    [1,{seal:'Command',stacks:3,buff:8},'Switch before expiry','After further swings, three Command charges remain. Change to the other seal.'],
    [2,{seal:'Righteousness',stacks:3,buff:7},'Release the charges','The switch kept all three charges. A successful melee hit under the new seal releases them.']
   ]
- }[spec];
+ }[spec]||cfg.lessons;
  let checkpoint=0;
  const shapes={start:'M8 5l11 7-11 7z',pause:'M8 5v14m8-14v14',resume:'M8 5l11 7-11 7z',lesson:'M3 4l9 2 9-2v14l-9 2-9-2zM12 6v14',solo:'M3 12s3-6 9-6 9 6 9 6-3 6-9 6-9-6-9-6zm0 0M4 3l16 18',retry:'M3 10a9 9 0 1 1 2 9M3 4v6h6',leave:'M14 4H5v16h9m-3-8h10m-4-4 4 4-4 4'};
  function controlButton(key,label,primary=false){
@@ -232,7 +235,10 @@
   el('#fight-clock').hidden=phase==='lesson'||phase==='learned';
   el('#fight-clock').value=total-s.t;
   el('#vitals').textContent=cfg.resource+' '+s.power+' / 100';
-  el('#auras').textContent=cfg.state(s).join('   ·   ');
+  if(cfg.notes){
+   const meter=document.createElement('meter');meter.min=0;meter.max=100;meter.value=s.power;meter.setAttribute('aria-label',cfg.resource);el('#vitals').append(meter);
+   el('#auras').replaceChildren(...cfg.state(s).map(text=>{const chip=document.createElement('span');chip.className='state-chip';chip.textContent=text;return chip;}));
+  }else el('#auras').textContent=cfg.state(s).join('   ·   ');
   buttons.forEach((b,i)=>{
    b.disabled=phase==='paused'||phase==='done'||phase==='learned';
    b.classList.toggle('recommended',(phase==='live'&&assisted&&hint===i)||(phase==='lesson'&&lessons[checkpoint][0]===i));
@@ -254,7 +260,7 @@
   lastTick+=elapsed*1000;
   for(let n=0;n<elapsed&&s.t<total;n++){
    s.t++;s.global=Math.max(0,s.global-1);
-   for(const k of (spec==='frost-mage'?['buff','bleed']:['buff','proc','bleed']))s[k]=Math.max(0,s[k]-1);
+   for(const k of (cfg.decay||(spec==='frost-mage'?['buff','bleed']:['buff','proc','bleed'])))s[k]=Math.max(0,s[k]-1);
    s.cd=s.cd.map(v=>Math.max(0,v-1));const event=cfg.tick(s);if(event)message=event;s.power=Math.min(100,s.power);
   }
   if(s.t===total){
@@ -298,7 +304,7 @@
   if(b.dataset.control==='pause')pause();
   if(b.dataset.control==='resume'&&phase==='paused')live();
  });
- board.addEventListener('keydown',e=>{if(!e.target.closest('select,input,textarea,a,summary')&&!e.repeat&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&/^[1-4]$/.test(e.key)){e.preventDefault();cast(Number(e.key)-1);}});
+ board.addEventListener('keydown',e=>{if(!e.target.closest('select,input,textarea,a,summary')&&!e.repeat&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&/^[1-9]$/.test(e.key)&&Number(e.key)<=cfg.names.length){e.preventDefault();cast(Number(e.key)-1);}});
  document.querySelector('.quizpanel')?.addEventListener('toggle',e=>{if(e.currentTarget.open)pause();});
  document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
  window.addEventListener('pagehide',()=>{pause();stop();});

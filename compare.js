@@ -3,7 +3,7 @@
  const chooser=document.querySelector('.pick-pair');
  const comparePath='/compare-rotations/';
  const key='fr.compare.pair';
- const supported=['retribution-paladin-rotation','arms-warrior-rotation','frost-mage-rotation','combat-rogue-rotation'];
+ const supported=['retribution-paladin-rotation','arms-warrior-rotation','frost-mage-rotation','combat-rogue-rotation','feral-druid-rotation','beast-mastery-hunter-rotation','enhancement-shaman-rotation'];
  const valid=pair=>pair.length===2&&pair[0]!==pair[1]&&pair.every(value=>supported.includes(value));
  if(!chooser){
   const practice=document.querySelector('#practice');
